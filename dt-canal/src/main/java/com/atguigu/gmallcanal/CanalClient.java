@@ -54,11 +54,11 @@ public class CanalClient {
                             //e.5用rowchange反序列化
                             CanalEntry.RowChange rowChange = CanalEntry.RowChange.parseFrom(storeValue);
                             //e.6获取RowDataList的集合
-                            List<CanalEntry.RowData> rowDatasList = rowChange.getRowDatasList();
+                            List<CanalEntry.RowData> rowDataList = rowChange.getRowDatasList();
                             //e.7获取事件类型
                             CanalEntry.EventType eventType = rowChange.getEventType();
                             //e.8处理数据
-                            CanalHandler.handler(tableName, eventType, rowDatasList);
+                            (new CanalHandler(tableName, eventType, rowDataList)).handle();
                         } catch (InvalidProtocolBufferException e) {
                             e.printStackTrace();
                         }
