@@ -33,6 +33,7 @@ public class MyKafkaSender {
         if (kafkaProducer == null) {
             kafkaProducer = createKafkaProducer();
         }
+
         kafkaProducer.send(new ProducerRecord<>(topic, message));
     }
 }

@@ -19,5 +19,8 @@ public class GmallConstants {
     public static final String GMALL_TOPIC_ORDER_DETAIL = "TOPIC_ORDER_DETAIL";
     //
     public static final String GMALL_ES_ALERT_PRE = "gmall_coupon_alert";
+    //
+    public static final String GMALL_ES_SALE_DETAIL_PRE = "gmall_sale_detail";
+
 
 }

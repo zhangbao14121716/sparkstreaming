@@ -22,7 +22,7 @@ object SaveUserInfoToRedisApp {
   def main(args: Array[String]): Unit = {
     //1.创建配置对象，和sparkStreaming对象
     val sparkConf: SparkConf = new SparkConf().setAppName("SaveUserInfoToRedisApp").setMaster("local[*]")
-    val ssc: StreamingContext = new StreamingContext(sparkConf, Seconds(5))
+    val ssc: StreamingContext = new StreamingContext(sparkConf, Seconds(3))
     //2.获取kafka流
     val kafkaDStream: InputDStream[ConsumerRecord[String, String]] = MyKafkaUtil.getKafkaStream(GmallConstants.GMALL_TOPIC_USER, ssc)
     //3.写入Redis操作
@@ -36,12 +36,18 @@ object SaveUserInfoToRedisApp {
           val userInfoOrgin: String = record.value()
           val userInfo: UserInfo = JSON.parseObject(userInfoOrgin, classOf[UserInfo])
           val redisKey: String = s"userInfo:${userInfo.id}"
-          jedisClient.set(redisKey,userInfo.toString)
+          //将userInfo写入数据
+          jedisClient.set(redisKey,userInfoOrgin)
         })
         //释放连接
         jedisClient.close()
-
       })
     })
+
+    //启动任务
+    ssc.start()
+    ssc.awaitTermination()
+
+
   }
 }

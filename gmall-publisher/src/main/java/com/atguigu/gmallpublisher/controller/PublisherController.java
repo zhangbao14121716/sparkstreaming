@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import java.util.*;
 
@@ -86,7 +87,6 @@ public class PublisherController {
         result.put("yesterday", yesterdayMap);
         return JSONObject.toJSONString(result);
     }
-
 /*    @GetMapping("realtime-hours1")
     public String realtimeHourDate1(@RequestParam("id") String id, @RequestParam("date") String date) {
         //1.
@@ -118,4 +118,11 @@ public class PublisherController {
 
         return null;
     }*/
+
+    //
+    @GetMapping("sale_detail")
+    public String getSaleDetail(@RequestParam("date") String date, @RequestParam("startpage") int startpage, @RequestParam("size") int size, @RequestParam("keyword") String keyword) throws IOException {
+        Map saleDetail = publisherService.getSaleDetail(date, startpage, size, keyword);
+        return JSONObject.toJSONString(saleDetail);
+    }
 }

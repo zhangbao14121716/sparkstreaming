@@ -1,13 +1,14 @@
 package com.atguigu.app
 
 import java.text.SimpleDateFormat
+import java.time.LocalDate
 import java.util
 import java.util.Date
 
 import com.alibaba.fastjson.{JSON, JSONObject}
-import com.atguigu.bean.{OrderDetail, OrderInfo, SaleDetail}
+import com.atguigu.bean.{OrderDetail, OrderInfo, SaleDetail, UserInfo}
 import com.atguigu.constants.GmallConstants
-import com.atguigu.utils.{MyKafkaUtil, RedisUtil}
+import com.atguigu.utils.{MyESUtil, MyKafkaUtil, RedisUtil}
 import org.apache.kafka.clients.consumer.ConsumerRecord
 import org.apache.spark.SparkConf
 import org.apache.spark.streaming.dstream.{DStream, InputDStream}
@@ -58,8 +59,8 @@ object SaleDetailApp {
     })
     //5.用fullOuterJoin获取所有流信息
     val fullJoinDStream: DStream[(String, (Option[OrderInfo], Option[OrderDetail]))] = idToOrderInfoDStream.fullOuterJoin(idToOrderDetailDStream)
-    //
-    val saleDetailDStream: DStream[SaleDetail] = fullJoinDStream.mapPartitions(iter => {
+    //！！！！！！处理双流join操作！！！！！！！
+    val noUserSaleDetailDStream: DStream[SaleDetail] = fullJoinDStream.mapPartitions(iter => {
       //5.1获取Redis连接
       val jedisClient: Jedis = RedisUtil.getJedisClient
       //5.2SaleDetail存入缓存
@@ -117,8 +118,44 @@ object SaleDetailApp {
       //返回iterator
       saleDetailList.toIterator
     })
-    //6.打印预览
+//    //打印预览
+//    noUserSaleDetailDStream.print(100)
+
+    //
+    val saleDetailDStream: DStream[SaleDetail] = noUserSaleDetailDStream.mapPartitions(iter => {
+      //获取连接
+      val jedisClient: Jedis = RedisUtil.getJedisClient
+      //返回数据
+      val saleDetailIter: Iterator[SaleDetail] = iter.map(noUserSaleDetail => {
+        val userInfoString: String = jedisClient.get(s"userInfo:${noUserSaleDetail.user_id}")
+        val userInfo: UserInfo = JSON.parseObject(userInfoString, classOf[UserInfo])
+        noUserSaleDetail.mergeUserInfo(userInfo)
+        noUserSaleDetail
+      })
+      //释放连接
+      jedisClient.close()
+      saleDetailIter
+    })
+
+//    //打印预览
+    saleDetailDStream.cache()
     saleDetailDStream.print(100)
+
+    //TODO 保存到ES
+    saleDetailDStream.foreachRDD(rdd =>{
+      //减少连接数
+      rdd.foreachPartition(iter => {
+        val dateString: String = LocalDate.now().toString
+        //indexName
+        val indexName: String = s"${GmallConstants.GMALL_ES_SALE_DETAIL_PRE}-$dateString"
+        //数据
+        val iterator: Iterator[(String, SaleDetail)] = iter.map(saleDetail => {
+
+          (saleDetail.order_detail_id, saleDetail)
+        })
+        MyESUtil.insertByBulk(indexName, "_doc", iterator.toList)
+      })
+    })
     //启动任务
     ssc.start()
     ssc.awaitTermination()
